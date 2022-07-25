@@ -13,11 +13,12 @@ class TextView : NSView {
 	
 	var text = "There once was a man from    Nantucket\nwho needed some text but went fuck it\nI'll make it up as I go\nand no one will know\n'cause I'll hide it inside a wood bucket."
 	var font: NSFont = NSFont(name: "Monaco", size: 24)!
+	var inset = NSSize(width: 4, height: 4)
 	var lineRuns = [LineRun]()
 	var selectionStart: String.Index
 	var selectionEnd: String.Index
 
-	private let xStart: CGFloat = 4;
+	private let xStart: CGFloat
 	override var isFlipped: Bool {
 		return true
 	}
@@ -25,6 +26,7 @@ class TextView : NSView {
 	override init(frame: NSRect) {
 //		selectionStart = text.index(text.startIndex, offsetBy: 4)
 //		selectionEnd = text.index(selectionStart, offsetBy: 40)
+		xStart = inset.width
 		selectionStart = text.startIndex
 		selectionEnd = selectionStart
 		super.init(frame: frame)
@@ -33,6 +35,7 @@ class TextView : NSView {
 	required init?(coder: NSCoder) {
 //		selectionStart = text.index(text.startIndex, offsetBy: 4)
 //		selectionEnd = text.index(selectionStart, offsetBy: 40)
+		xStart = inset.width
 		selectionStart = text.startIndex
 		selectionEnd = selectionStart
 		super.init(coder: coder)
@@ -49,7 +52,7 @@ class TextView : NSView {
 			// Full line selected?
 			if selectionStart <= lineRun.startIndex && selectionEnd >= lineRun.endIndex {
 				let currRunText = String(text[lineRun.startIndex..<lineRun.endIndex])
-				let fullBox = NSRect(x: xStart, y: lineRun.vPosition, width: self.bounds.width - 4 - 4, height: lineRun.lineHeight)
+				let fullBox = NSRect(x: xStart, y: lineRun.vPosition, width: self.bounds.width - inset.width - inset.width, height: lineRun.lineHeight)
 				NSColor.selectedTextBackgroundColor.set()
 				NSBezierPath.fill(fullBox)
 				currRunText.draw(at: NSPoint(x: xStart, y: lineRun.vPosition), withAttributes: [.font: font, .foregroundColor: NSColor.selectedTextColor])
@@ -68,7 +71,7 @@ class TextView : NSView {
 				if haveSelText {
 					let selText = String(text[max(selectionStart,lineRun.startIndex)..<min(selectionEnd,lineRun.endIndex)])
 					let selSize = selText.size(withAttributes: [.font: font, .foregroundColor: NSColor.selectedTextColor])
-					let selWidth = haveTextAfter ? selSize.width : (bounds.size.width - currTextXPos - 4)
+					let selWidth = haveTextAfter ? selSize.width : (bounds.size.width - currTextXPos - inset.width)
 					let selBox = NSRect(x: currTextXPos, y: lineRun.vPosition, width: selWidth, height: lineRun.lineHeight)
 					NSColor.selectedTextBackgroundColor.set()
 					NSBezierPath.fill(selBox)
@@ -106,7 +109,7 @@ class TextView : NSView {
 							  startIndex: text.startIndex, endIndex: text.startIndex,
 							  hardBreak: false)
 		
-		let xEnd: CGFloat = bounds.size.width - 4 - 4
+		let xEnd: CGFloat = bounds.size.width - inset.width - inset.width
 		
 		var lastSpace: String.Index?
 		var lastSpaceEnd: String.Index?
@@ -187,8 +190,75 @@ class TextView : NSView {
 		return lineRuns.firstIndex { $0.startIndex <= index && $0.endIndex > index }
 	}
 	
+	func lineRun(at position: NSPoint) -> Array.Index? {
+		let drawBox = NSInsetRect(bounds, inset.width + inset.width, inset.height + inset.height)
+		var pos = position
+		if !NSPointInRect(position, drawBox) {
+			if position.y < NSMinY(drawBox) { pos.y = NSMinY(drawBox) }
+			if position.x < NSMinX(drawBox) { pos.x = NSMinX(drawBox) }
+			if position.y > NSMaxY(drawBox) { pos.y = NSMaxY(drawBox) }
+			if position.x > NSMaxX(drawBox) { pos.x = NSMaxX(drawBox) }
+		}
+		
+		for x in lineRuns.startIndex ..< lineRuns.endIndex {
+			let lineRun = lineRuns[x]
+			let lineBox = NSRect(x: xStart, y: lineRun.vPosition, width: self.bounds.width - inset.width - inset.width, height: lineRun.lineHeight)
+			if NSPointInRect(position, lineBox) {
+				return x
+			}
+		}
+		
+		return nil
+	}
+	
+	func textIndex(at desiredX: CGFloat, in lineRun: LineRun) -> String.Index {
+		var x = lineRun.startIndex
+		var xPosition: CGFloat = xStart;
+		while x < lineRun.endIndex {
+			let endIndex = text.index(after: x)
+			let currChar = String(text[x..<endIndex])
+			let size = currChar.size(withAttributes: [.font: font, .foregroundColor: NSColor.textColor])
+			
+			if desiredX < (xPosition + (size.width / 2)) {
+				return x
+			}
+			
+			xPosition += size.width
+			x = endIndex
+		}
+		
+		return lineRun.endIndex
+	}
+	
 	override func mouseDown(with event: NSEvent) {
-		self.window?.makeFirstResponder(self)
+		guard let window = self.window else { return }
+		
+		window.makeFirstResponder(self)
+		
+		let pos = self.convert(event.locationInWindow, from: nil)
+		if let hitLineRun = lineRun(at: pos) {
+			selectionStart = textIndex(at: pos.x, in: lineRuns[hitLineRun])
+		} else {
+			selectionStart = text.endIndex
+		}
+		selectionEnd = selectionStart
+		
+		setNeedsDisplay(bounds)
+	}
+	
+	override func mouseDragged(with event: NSEvent) {
+		guard let window = self.window else { return }
+		
+		window.makeFirstResponder(self)
+		
+		let pos = self.convert(event.locationInWindow, from: nil)
+		if let hitLineRun = lineRun(at: pos) {
+			selectionEnd = textIndex(at: pos.x, in: lineRuns[hitLineRun])
+		} else {
+			selectionEnd = text.endIndex
+		}
+		
+		setNeedsDisplay(bounds)
 	}
 	
 	override var canBecomeKeyView: Bool { return true }
