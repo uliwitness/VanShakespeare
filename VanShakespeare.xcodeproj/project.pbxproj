@@ -13,6 +13,7 @@
 		551D9813288EF51100CBD4F0 /* VanShakespeareTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 551D9812288EF51100CBD4F0 /* VanShakespeareTests.swift */; };
 		551D981D288EF51100CBD4F0 /* VanShakespeareUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 551D981C288EF51100CBD4F0 /* VanShakespeareUITests.swift */; };
 		551D981F288EF51100CBD4F0 /* VanShakespeareUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 551D981E288EF51100CBD4F0 /* VanShakespeareUITestsLaunchTests.swift */; };
+		551D982C288EF66600CBD4F0 /* TextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 551D982B288EF66600CBD4F0 /* TextView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -43,6 +44,7 @@
 		551D9818288EF51100CBD4F0 /* VanShakespeareUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VanShakespeareUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		551D981C288EF51100CBD4F0 /* VanShakespeareUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VanShakespeareUITests.swift; sourceTree = "<group>"; };
 		551D981E288EF51100CBD4F0 /* VanShakespeareUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VanShakespeareUITestsLaunchTests.swift; sourceTree = "<group>"; };
+		551D982B288EF66600CBD4F0 /* TextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -96,6 +98,7 @@
 				551D9802288EF51000CBD4F0 /* AppDelegate.swift */,
 				551D9804288EF51100CBD4F0 /* Assets.xcassets */,
 				551D9806288EF51100CBD4F0 /* MainMenu.xib */,
+				551D982B288EF66600CBD4F0 /* TextView.swift */,
 				551D9809288EF51100CBD4F0 /* VanShakespeare.entitlements */,
 			);
 			path = VanShakespeare;
@@ -249,6 +252,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				551D9803288EF51000CBD4F0 /* AppDelegate.swift in Sources */,
+				551D982C288EF66600CBD4F0 /* TextView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
