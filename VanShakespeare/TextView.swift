@@ -3,6 +3,11 @@ import AppKit
 
 class TextView : NSView {
 	
+	enum SelectionAnchor {
+		case startAnchored
+		case endAnchored
+	}
+	
 	struct LineRun {
 		var lineHeight: CGFloat
 		var vPosition: CGFloat
@@ -18,6 +23,7 @@ class TextView : NSView {
 	var selectionStart: String.Index
 	var selectionEnd: String.Index
 
+	private var selectionAnchor = SelectionAnchor.startAnchored
 	private let xStart: CGFloat
 	override var isFlipped: Bool {
 		return true
@@ -242,7 +248,8 @@ class TextView : NSView {
 			selectionStart = text.endIndex
 		}
 		selectionEnd = selectionStart
-		
+		selectionAnchor = .startAnchored
+
 		setNeedsDisplay(bounds)
 	}
 	
@@ -251,11 +258,28 @@ class TextView : NSView {
 		
 		window.makeFirstResponder(self)
 		
+		var newOffset: String.Index
 		let pos = self.convert(event.locationInWindow, from: nil)
 		if let hitLineRun = lineRun(at: pos) {
-			selectionEnd = textIndex(at: pos.x, in: lineRuns[hitLineRun])
+			newOffset = textIndex(at: pos.x, in: lineRuns[hitLineRun])
 		} else {
-			selectionEnd = text.endIndex
+			newOffset = text.endIndex
+		}
+		
+		if selectionStart > selectionEnd {
+			let tmp = selectionStart
+			selectionStart = selectionEnd
+			selectionEnd = tmp
+			if selectionAnchor == .endAnchored {
+				selectionAnchor = .startAnchored
+			} else {
+				selectionAnchor = .endAnchored
+			}
+		}
+		if selectionAnchor == .endAnchored {
+			selectionStart = newOffset
+		} else {
+			selectionEnd = newOffset
 		}
 		
 		setNeedsDisplay(bounds)
