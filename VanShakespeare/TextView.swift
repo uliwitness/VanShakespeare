@@ -226,6 +226,13 @@ class TextView : NSView {
 		return text.index(lineRun.endIndex, offsetBy: -1, limitedBy: lineRun.startIndex) ?? lineRun.startIndex
 	}
 	
+	func xCoordinate(of index: String.Index, in lineRun: LineRun) -> CGFloat {
+		let currChar = String(text[lineRun.startIndex..<index])
+		let size = currChar.size(withAttributes: [.font: font, .foregroundColor: NSColor.textColor])
+		
+		return inset.width + size.width
+	}
+	
 	override func mouseDown(with event: NSEvent) {
 		guard let window = self.window else { return }
 		
@@ -306,9 +313,8 @@ class TextView : NSView {
 				selectionEnd = text.endIndex
 			} else {
 				let nextLineRun = lineRuns[currLineRunIndex + 1]
-				let relSelIndex = text.distance(from: lineRuns[currLineRunIndex].startIndex, to: selectionEnd)
-				let lastNextLineChar = text.index(nextLineRun.endIndex, offsetBy: -1, limitedBy: nextLineRun.startIndex) ?? nextLineRun.startIndex
-				selectionEnd = text.index(nextLineRun.startIndex, offsetBy: relSelIndex, limitedBy: nextLineRun.endIndex) ?? lastNextLineChar
+				let xInLine = xCoordinate(of: selectionEnd, in: lineRuns[currLineRunIndex])
+				selectionEnd = textIndex(at: xInLine, in: nextLineRun)
 			}
 		} else {
 			selectionEnd = text.endIndex
@@ -323,9 +329,8 @@ class TextView : NSView {
 				selectionStart = text.startIndex
 			} else {
 				let prevLineRun = lineRuns[currLineRunIndex - 1]
-				let relSelIndex = text.distance(from: lineRuns[currLineRunIndex].startIndex, to: selectionEnd)
-				let lastPrevLineChar = text.index(prevLineRun.endIndex, offsetBy: -1, limitedBy: prevLineRun.startIndex) ?? prevLineRun.startIndex
-				selectionStart = text.index(prevLineRun.startIndex, offsetBy: relSelIndex, limitedBy: prevLineRun.endIndex) ?? lastPrevLineChar
+				let xInLine = xCoordinate(of: selectionStart, in: lineRuns[currLineRunIndex])
+				selectionStart = textIndex(at: xInLine, in: prevLineRun)
 			}
 		} else {
 			selectionStart = text.startIndex
