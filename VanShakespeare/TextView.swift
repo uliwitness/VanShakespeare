@@ -20,10 +20,11 @@ class TextView : NSView {
 	var text = "There once was a man from    Nantucket\nwho needed some text but went fuck it\nI'll make it up as I go\nand no one will know\n'cause I'll hide it inside a wood bucket."
 	var font: NSFont = NSFont(name: "Helvetica", size: 14)!
 	var inset = NSSize(width: 10, height: 10)
-	var lineRuns = [LineRun]()
 	var selectionStart: String.Index
 	var selectionEnd: String.Index
 
+	private var xInLine: CGFloat?
+	private var lineRuns = [LineRun]()
 	private var selectionAnchor = SelectionAnchor.startAnchored
 	override var isFlipped: Bool {
 		return true
@@ -246,6 +247,7 @@ class TextView : NSView {
 		}
 		selectionEnd = selectionStart
 		selectionAnchor = .startAnchored
+		xInLine = nil
 
 		setNeedsDisplay(bounds)
 	}
@@ -259,6 +261,8 @@ class TextView : NSView {
 		let pos = self.convert(event.locationInWindow, from: nil)
 		if let hitLineRun = lineRun(at: pos) {
 			newOffset = textIndex(at: pos.x, in: lineRuns[hitLineRun])
+		} else if pos.y < (NSMinY(bounds) + inset.height) {
+			newOffset = text.startIndex
 		} else {
 			newOffset = text.endIndex
 		}
@@ -278,7 +282,8 @@ class TextView : NSView {
 		} else {
 			selectionEnd = newOffset
 		}
-		
+		xInLine = nil
+
 		setNeedsDisplay(bounds)
 	}
 	
@@ -298,12 +303,14 @@ class TextView : NSView {
 	override func moveRight(_ sender: Any?) {
 		selectionEnd = text.index(selectionEnd, offsetBy: 1, limitedBy: text.endIndex) ?? selectionEnd
 		selectionStart = selectionEnd
+		xInLine = nil
 		setNeedsDisplay(bounds)
 	}
 	
 	override func moveLeft(_ sender: Any?) {
 		selectionStart = text.index(selectionStart, offsetBy: -1, limitedBy: text.startIndex) ?? selectionStart
 		selectionEnd = selectionStart
+		xInLine = nil
 		setNeedsDisplay(bounds)
 	}
 	
@@ -311,13 +318,15 @@ class TextView : NSView {
 		if let currLineRunIndex = lineRunIndex(at: selectionEnd) {
 			if currLineRunIndex >= (lineRuns.count - 1) {
 				selectionEnd = text.endIndex
+				xInLine = nil
 			} else {
 				let nextLineRun = lineRuns[currLineRunIndex + 1]
-				let xInLine = xCoordinate(of: selectionEnd, in: lineRuns[currLineRunIndex])
-				selectionEnd = textIndex(at: xInLine, in: nextLineRun)
+				if xInLine == nil { xInLine = xCoordinate(of: selectionEnd, in: lineRuns[currLineRunIndex]) }
+				selectionEnd = textIndex(at: xInLine!, in: nextLineRun)
 			}
 		} else {
 			selectionEnd = text.endIndex
+			xInLine = nil
 		}
 		selectionStart = selectionEnd
 		setNeedsDisplay(bounds)
@@ -327,13 +336,15 @@ class TextView : NSView {
 		if let currLineRunIndex = lineRunIndex(at: selectionStart) {
 			if currLineRunIndex <= lineRuns.startIndex {
 				selectionStart = text.startIndex
+				xInLine = nil
 			} else {
 				let prevLineRun = lineRuns[currLineRunIndex - 1]
-				let xInLine = xCoordinate(of: selectionStart, in: lineRuns[currLineRunIndex])
-				selectionStart = textIndex(at: xInLine, in: prevLineRun)
+				if xInLine == nil { xInLine = xCoordinate(of: selectionStart, in: lineRuns[currLineRunIndex]) }
+				selectionStart = textIndex(at: xInLine!, in: prevLineRun)
 			}
 		} else {
 			selectionStart = text.startIndex
+			xInLine = nil
 		}
 		selectionEnd = selectionStart
 		setNeedsDisplay(bounds)
