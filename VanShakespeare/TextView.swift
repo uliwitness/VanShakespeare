@@ -26,6 +26,8 @@ class TextView : NSView {
 	private var xInLine: CGFloat?
 	private var lineRuns = [LineRun]()
 	private var selectionAnchor = SelectionAnchor.startAnchored
+	private var insertionMarkTimer: Timer?
+	private var insertionMarkBox: NSRect = .zero
 	override var isFlipped: Bool {
 		return true
 	}
@@ -34,12 +36,16 @@ class TextView : NSView {
 		selectionStart = text.endIndex
 		selectionEnd = selectionStart
 		super.init(frame: frame)
+		layoutText()
+		selectionChanged()
 	}
 	
 	required init?(coder: NSCoder) {
 		selectionStart = text.endIndex
 		selectionEnd = selectionStart
 		super.init(coder: coder)
+		layoutText()
+		selectionChanged()
 	}
 
 	override func draw(_ dirtyRect: NSRect) {
@@ -78,9 +84,6 @@ class TextView : NSView {
 					NSBezierPath.fill(selBox)
 					selText.draw(at: NSPoint(x: currTextXPos, y: lineRun.vPosition + lineRun.descent), withAttributes: [.font: font, .foregroundColor: NSColor.selectedTextColor])
 					currTextXPos += selSize.width
-				} else { // Text cursor.
-					NSColor.selectedTextColor.set()
-					NSBezierPath.strokeLine(from: NSPoint(x: currTextXPos, y: lineRun.vPosition), to: NSPoint(x: currTextXPos, y: lineRun.vPosition + lineRun.lineHeight))
 				}
 				if haveTextAfter {
 					let afterSelText = String(text[selectionEnd..<lineRun.endIndex])
@@ -91,15 +94,13 @@ class TextView : NSView {
 			// Full line not selected?
 			} else {
 				let currRunText = String(text[lineRun.startIndex..<lineRun.endIndex])
-				let textSize = currRunText.size(withAttributes: [.font: font, .foregroundColor: NSColor.textColor])
 				currRunText.draw(at: NSPoint(x: inset.width, y: lineRun.vPosition + lineRun.descent), withAttributes: [.font: font, .foregroundColor: NSColor.textColor])
-				let currTextXPos = inset.width + textSize.width
-
-				if lineRun.endIndex == selectionEnd && selectionEnd == text.endIndex && selectionStart == selectionEnd {
-					NSColor.selectedTextColor.set()
-					NSBezierPath.strokeLine(from: NSPoint(x: currTextXPos, y: lineRun.vPosition), to: NSPoint(x: currTextXPos, y: lineRun.vPosition + lineRun.lineHeight))
-				}
 			}
+		}
+		
+		if insertionMarkBox.size.height > 0 {
+			NSColor.textColor.set()
+			NSBezierPath.stroke(insertionMarkBox)
 		}
 	}
 	
@@ -188,18 +189,19 @@ class TextView : NSView {
 	}
 	
 	func lineRunIndex(at index: String.Index) -> Array.Index? {
+		guard !lineRuns.isEmpty else { return nil }
 		guard index != text.endIndex else { return lineRuns.count - 1 }
 		return lineRuns.firstIndex { $0.startIndex <= index && $0.endIndex > index }
 	}
 	
 	func lineRun(at position: NSPoint) -> Array.Index? {
 		let drawBox = NSInsetRect(bounds, 0, inset.height)
-		guard NSPointInRect(position, drawBox) else { return nil }
+		guard position.y <= NSMaxY(drawBox) && position.y >= NSMinY(drawBox) else { return nil }
 		
 		for x in lineRuns.startIndex ..< lineRuns.endIndex {
 			let lineRun = lineRuns[x]
 			let lineBox = NSRect(x: drawBox.origin.x, y: lineRun.vPosition - 1, width: drawBox.size.width, height: lineRun.lineHeight)
-			if NSPointInRect(position, lineBox) {
+			if position.y <= NSMaxY(lineBox) && position.y >= NSMinY(lineBox) {
 				return x
 			}
 		}
@@ -249,7 +251,7 @@ class TextView : NSView {
 		selectionAnchor = .startAnchored
 		xInLine = nil
 
-		setNeedsDisplay(bounds)
+		selectionChanged()
 	}
 	
 	override func mouseDragged(with event: NSEvent) {
@@ -284,7 +286,7 @@ class TextView : NSView {
 		}
 		xInLine = nil
 
-		setNeedsDisplay(bounds)
+		selectionChanged()
 	}
 	
 	override var canBecomeKeyView: Bool { return true }
@@ -304,14 +306,14 @@ class TextView : NSView {
 		selectionEnd = text.index(selectionEnd, offsetBy: 1, limitedBy: text.endIndex) ?? selectionEnd
 		selectionStart = selectionEnd
 		xInLine = nil
-		setNeedsDisplay(bounds)
+		selectionChanged()
 	}
 	
 	override func moveLeft(_ sender: Any?) {
 		selectionStart = text.index(selectionStart, offsetBy: -1, limitedBy: text.startIndex) ?? selectionStart
 		selectionEnd = selectionStart
 		xInLine = nil
-		setNeedsDisplay(bounds)
+		selectionChanged()
 	}
 	
 	override func moveDown(_ sender: Any?) {
@@ -329,7 +331,7 @@ class TextView : NSView {
 			xInLine = nil
 		}
 		selectionStart = selectionEnd
-		setNeedsDisplay(bounds)
+		selectionChanged()
 	}
 	
 	override func moveUp(_ sender: Any?) {
@@ -347,10 +349,47 @@ class TextView : NSView {
 			xInLine = nil
 		}
 		selectionEnd = selectionStart
-		setNeedsDisplay(bounds)
+		selectionChanged()
 	}
 	
 	override func resetCursorRects() {
 		addCursorRect(self.bounds, cursor: NSCursor.iBeam)
+	}
+	
+	func updateInsertionMarkRect() {
+		guard selectionEnd == selectionStart else {
+			insertionMarkBox.size.height = 0
+			insertionMarkTimer?.invalidate()
+			insertionMarkTimer = nil
+			return
+		}
+		if let currLineRunIndex = lineRunIndex(at: selectionEnd) {
+			let lineRun = lineRuns[currLineRunIndex]
+			let insertionMarkX = xCoordinate(of: selectionEnd, in: lineRun)
+			insertionMarkBox = NSRect(x: insertionMarkX, y: lineRun.vPosition, width: 0, height: lineRun.lineHeight)
+		}
+	}
+	
+	@objc func flashInsertionMark(_ sender: Timer) {
+		if insertionMarkBox.size.height > 0 {
+			insertionMarkBox.size.height = 0
+		} else {
+			updateInsertionMarkRect()
+		}
+		setNeedsDisplay(bounds)
+	}
+	
+	func selectionChanged() {
+		setNeedsDisplay(bounds)
+		
+		if selectionEnd == selectionStart && insertionMarkTimer == nil {
+			insertionMarkTimer = Timer.scheduledTimer(timeInterval: 0.5, target: self, selector: #selector(TextView.flashInsertionMark(_:)), userInfo: nil, repeats: true)
+		} else if selectionEnd != selectionStart && insertionMarkTimer != nil {
+			insertionMarkTimer?.invalidate()
+			insertionMarkTimer = nil
+			insertionMarkBox = .zero
+		}
+		
+		updateInsertionMarkRect()
 	}
 }
