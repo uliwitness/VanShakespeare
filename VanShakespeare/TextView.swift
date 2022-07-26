@@ -17,12 +17,19 @@ class TextView : NSView {
 		var hardBreak: Bool
 	}
 	
-	var text = "There once was a man from    Nantucket\nwho needed some text but went fuck it\nI'll make it up as I go\nand no one will know\n'cause I'll hide it inside a wood bucket."
-	var font: NSFont = NSFont(name: "Helvetica", size: 14)!
-	var inset = NSSize(width: 10, height: 10)
-	var selectionStart: String.Index
-	var selectionEnd: String.Index
+	public var font: NSFont = NSFont(name: "Helvetica", size: 14)!
+	public var inset = NSSize(width: 8, height: 8)
+	public var selectionStart: String.Index
+	public var selectionEnd: String.Index
+	public var string: String {
+		set(newValue) {
+			text = newValue
+			layoutText()
+		}
+		get { text }
+	}
 
+	private var text = "There once was a man from    Nantucket\nwho needed some text but went fuck it\nI'll make it up as I go\nand no one will know\n'cause I'll hide it inside a wood bucket."
 	private var xInLine: CGFloat?
 	private var lineRuns = [LineRun]()
 	private var selectionAnchor = SelectionAnchor.startAnchored
@@ -49,10 +56,10 @@ class TextView : NSView {
 	}
 
 	override func draw(_ dirtyRect: NSRect) {
-		layoutText()
-		
 		NSColor.textBackgroundColor.set()
 		NSBezierPath.fill(bounds)
+		NSColor.controlColor.set()
+		NSBezierPath.stroke(bounds)
 		NSColor.textColor.set()
 
 		for lineRun in lineRuns {
@@ -371,12 +378,14 @@ class TextView : NSView {
 	}
 	
 	@objc func flashInsertionMark(_ sender: Timer) {
+		var boxToRedraw = insertionMarkBox
 		if insertionMarkBox.size.height > 0 {
 			insertionMarkBox.size.height = 0
 		} else {
 			updateInsertionMarkRect()
+			boxToRedraw = insertionMarkBox
 		}
-		setNeedsDisplay(bounds)
+		setNeedsDisplay(NSInsetRect(boxToRedraw, -2, 0))
 	}
 	
 	func selectionChanged() {
@@ -391,5 +400,16 @@ class TextView : NSView {
 		}
 		
 		updateInsertionMarkRect()
+	}
+	
+	override func layout() {
+		super.layout()
+		layoutText()
+	}
+	
+	override func selectAll(_ sender: Any?) {
+		selectionStart = text.startIndex
+		selectionEnd = text.endIndex
+		selectionChanged()
 	}
 }
