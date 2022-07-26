@@ -11,38 +11,32 @@ class TextView : NSView {
 	struct LineRun {
 		var lineHeight: CGFloat
 		var vPosition: CGFloat
+		var descent: CGFloat
 		var startIndex: String.Index
 		var endIndex: String.Index
 		var hardBreak: Bool
 	}
 	
 	var text = "There once was a man from    Nantucket\nwho needed some text but went fuck it\nI'll make it up as I go\nand no one will know\n'cause I'll hide it inside a wood bucket."
-	var font: NSFont = NSFont(name: "Monaco", size: 24)!
-	var inset = NSSize(width: 4, height: 4)
+	var font: NSFont = NSFont(name: "Helvetica", size: 14)!
+	var inset = NSSize(width: 10, height: 10)
 	var lineRuns = [LineRun]()
 	var selectionStart: String.Index
 	var selectionEnd: String.Index
 
 	private var selectionAnchor = SelectionAnchor.startAnchored
-	private let xStart: CGFloat
 	override var isFlipped: Bool {
 		return true
 	}
 	
 	override init(frame: NSRect) {
-//		selectionStart = text.index(text.startIndex, offsetBy: 4)
-//		selectionEnd = text.index(selectionStart, offsetBy: 40)
-		xStart = inset.width
-		selectionStart = text.startIndex
+		selectionStart = text.endIndex
 		selectionEnd = selectionStart
 		super.init(frame: frame)
 	}
 	
 	required init?(coder: NSCoder) {
-//		selectionStart = text.index(text.startIndex, offsetBy: 4)
-//		selectionEnd = text.index(selectionStart, offsetBy: 40)
-		xStart = inset.width
-		selectionStart = text.startIndex
+		selectionStart = text.endIndex
 		selectionEnd = selectionStart
 		super.init(coder: coder)
 	}
@@ -58,20 +52,20 @@ class TextView : NSView {
 			// Full line selected?
 			if selectionStart <= lineRun.startIndex && selectionEnd >= lineRun.endIndex {
 				let currRunText = String(text[lineRun.startIndex..<lineRun.endIndex])
-				let fullBox = NSRect(x: xStart, y: lineRun.vPosition, width: self.bounds.width - inset.width - inset.width, height: lineRun.lineHeight)
+				let fullBox = NSRect(x: inset.width, y: lineRun.vPosition, width: self.bounds.width - inset.width - inset.width, height: lineRun.lineHeight)
 				NSColor.selectedTextBackgroundColor.set()
 				NSBezierPath.fill(fullBox)
-				currRunText.draw(at: NSPoint(x: xStart, y: lineRun.vPosition), withAttributes: [.font: font, .foregroundColor: NSColor.selectedTextColor])
+				currRunText.draw(at: NSPoint(x: inset.width, y: lineRun.vPosition + lineRun.descent), withAttributes: [.font: font, .foregroundColor: NSColor.selectedTextColor])
 			// Line partially selected:
 			} else if selectionStart < lineRun.endIndex && lineRun.startIndex <= selectionEnd {
-				var currTextXPos = xStart
+				var currTextXPos = inset.width
 				let haveTextBefore = text.distance(from: lineRun.startIndex, to: selectionStart) > 0
 				let haveSelText = text.distance(from: selectionStart, to: selectionEnd) > 0
 				let haveTextAfter = text.distance(from: selectionEnd, to: lineRun.endIndex) > 0
 				if haveTextBefore {
 					let beforeSelText = String(text[lineRun.startIndex..<selectionStart])
 					let beforeSelSize = beforeSelText.size(withAttributes: [.font: font, .foregroundColor: NSColor.textColor])
-					beforeSelText.draw(at: NSPoint(x: currTextXPos, y: lineRun.vPosition), withAttributes: [.font: font, .foregroundColor: NSColor.textColor])
+					beforeSelText.draw(at: NSPoint(x: currTextXPos, y: lineRun.vPosition + lineRun.descent), withAttributes: [.font: font, .foregroundColor: NSColor.textColor])
 					currTextXPos += beforeSelSize.width
 				}
 				if haveSelText {
@@ -81,7 +75,7 @@ class TextView : NSView {
 					let selBox = NSRect(x: currTextXPos, y: lineRun.vPosition, width: selWidth, height: lineRun.lineHeight)
 					NSColor.selectedTextBackgroundColor.set()
 					NSBezierPath.fill(selBox)
-					selText.draw(at: NSPoint(x: currTextXPos, y: lineRun.vPosition), withAttributes: [.font: font, .foregroundColor: NSColor.selectedTextColor])
+					selText.draw(at: NSPoint(x: currTextXPos, y: lineRun.vPosition + lineRun.descent), withAttributes: [.font: font, .foregroundColor: NSColor.selectedTextColor])
 					currTextXPos += selSize.width
 				} else { // Text cursor.
 					NSColor.selectedTextColor.set()
@@ -90,15 +84,15 @@ class TextView : NSView {
 				if haveTextAfter {
 					let afterSelText = String(text[selectionEnd..<lineRun.endIndex])
 					let afterSelSize = afterSelText.size(withAttributes: [.font: font, .foregroundColor: NSColor.textColor])
-					afterSelText.draw(at: NSPoint(x: currTextXPos, y: lineRun.vPosition), withAttributes: [.font: font, .foregroundColor: NSColor.textColor])
+					afterSelText.draw(at: NSPoint(x: currTextXPos, y: lineRun.vPosition + lineRun.descent), withAttributes: [.font: font, .foregroundColor: NSColor.textColor])
 					currTextXPos += afterSelSize.width
 				}
 			// Full line not selected?
 			} else {
 				let currRunText = String(text[lineRun.startIndex..<lineRun.endIndex])
 				let textSize = currRunText.size(withAttributes: [.font: font, .foregroundColor: NSColor.textColor])
-				currRunText.draw(at: NSPoint(x: xStart, y: lineRun.vPosition), withAttributes: [.font: font, .foregroundColor: NSColor.textColor])
-				let currTextXPos = xStart + textSize.width
+				currRunText.draw(at: NSPoint(x: inset.width, y: lineRun.vPosition + lineRun.descent), withAttributes: [.font: font, .foregroundColor: NSColor.textColor])
+				let currTextXPos = inset.width + textSize.width
 
 				if lineRun.endIndex == selectionEnd && selectionEnd == text.endIndex && selectionStart == selectionEnd {
 					NSColor.selectedTextColor.set()
@@ -111,7 +105,8 @@ class TextView : NSView {
 	func layoutText() {
 		lineRuns = [LineRun]()
 		var currRun = LineRun(lineHeight: font.ascender + -font.descender + font.leading,
-							  vPosition: 0,
+							  vPosition: inset.height,
+							  descent: font.descender,
 							  startIndex: text.startIndex, endIndex: text.startIndex,
 							  hardBreak: false)
 		
@@ -120,7 +115,7 @@ class TextView : NSView {
 		var lastSpace: String.Index?
 		var lastSpaceEnd: String.Index?
 		var x = text.startIndex
-		var xPosition: CGFloat = xStart;
+		var xPosition: CGFloat = inset.width;
 		while x < text.endIndex {
 			var endIndex = text.index(after: x)
 			let currChar = String(text[x..<endIndex])
@@ -133,7 +128,7 @@ class TextView : NSView {
 				currRun.startIndex = endIndex
 				currRun.endIndex = endIndex
 				currRun.vPosition += currRun.lineHeight
-				xPosition = xStart
+				xPosition = inset.width
 				lastSpace = nil
 				lastSpaceEnd = nil
 			} else {
@@ -153,7 +148,7 @@ class TextView : NSView {
 						currRun.startIndex = endIndex
 						currRun.endIndex = endIndex
 						currRun.vPosition += currRun.lineHeight
-						xPosition = xStart
+						xPosition = inset.width
 						lastSpace = nil
 						lastSpaceEnd = nil
 					} else {
@@ -161,7 +156,7 @@ class TextView : NSView {
 						currRun.startIndex = x
 						currRun.endIndex = endIndex
 						currRun.vPosition += currRun.lineHeight
-						xPosition = xStart
+						xPosition = inset.width
 						lastSpace = nil
 						lastSpaceEnd = nil
 					}
@@ -197,18 +192,12 @@ class TextView : NSView {
 	}
 	
 	func lineRun(at position: NSPoint) -> Array.Index? {
-		let drawBox = NSInsetRect(bounds, inset.width + inset.width, inset.height + inset.height)
-		var pos = position
-		if !NSPointInRect(position, drawBox) {
-			if position.y < NSMinY(drawBox) { pos.y = NSMinY(drawBox) }
-			if position.x < NSMinX(drawBox) { pos.x = NSMinX(drawBox) }
-			if position.y > NSMaxY(drawBox) { pos.y = NSMaxY(drawBox) }
-			if position.x > NSMaxX(drawBox) { pos.x = NSMaxX(drawBox) }
-		}
+		let drawBox = NSInsetRect(bounds, 0, inset.height)
+		guard NSPointInRect(position, drawBox) else { return nil }
 		
 		for x in lineRuns.startIndex ..< lineRuns.endIndex {
 			let lineRun = lineRuns[x]
-			let lineBox = NSRect(x: xStart, y: lineRun.vPosition, width: self.bounds.width - inset.width - inset.width, height: lineRun.lineHeight)
+			let lineBox = NSRect(x: drawBox.origin.x, y: lineRun.vPosition - 1, width: drawBox.size.width, height: lineRun.lineHeight)
 			if NSPointInRect(position, lineBox) {
 				return x
 			}
@@ -219,7 +208,7 @@ class TextView : NSView {
 	
 	func textIndex(at desiredX: CGFloat, in lineRun: LineRun) -> String.Index {
 		var x = lineRun.startIndex
-		var xPosition: CGFloat = xStart;
+		var xPosition: CGFloat = inset.width;
 		while x < lineRun.endIndex {
 			let endIndex = text.index(after: x)
 			let currChar = String(text[x..<endIndex])
@@ -233,7 +222,8 @@ class TextView : NSView {
 			x = endIndex
 		}
 		
-		return lineRun.endIndex
+		guard lineRun.endIndex != text.endIndex else { return lineRun.endIndex }
+		return text.index(lineRun.endIndex, offsetBy: -1, limitedBy: lineRun.startIndex) ?? lineRun.startIndex
 	}
 	
 	override func mouseDown(with event: NSEvent) {
@@ -342,5 +332,9 @@ class TextView : NSView {
 		}
 		selectionEnd = selectionStart
 		setNeedsDisplay(bounds)
+	}
+	
+	override func resetCursorRects() {
+		addCursorRect(self.bounds, cursor: NSCursor.iBeam)
 	}
 }
