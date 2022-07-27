@@ -63,6 +63,8 @@ class TextView : NSView {
 		NSColor.textColor.set()
 
 		for lineRun in lineRuns {
+			if lineRun.vPosition > NSMaxY(dirtyRect) { continue }
+			if lineRun.vPosition + lineRun.lineHeight < NSMinY(dirtyRect) { continue }
 			// Full line selected?
 			if selectionStart <= lineRun.startIndex && selectionEnd >= lineRun.endIndex {
 				let currRunText = String(text[lineRun.startIndex..<lineRun.endIndex])
